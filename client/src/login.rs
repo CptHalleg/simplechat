@@ -1,0 +1,133 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
+use iced::Element;
+use iced::Length;
+use iced::Task;
+use iced::widget::button;
+use iced::widget::column;
+use iced::widget::container;
+use iced::widget::text;
+use iced::widget::text_input;
+
+use crate::app::AppMsg;
+use crate::app::AppState;
+use crate::core::CoreState;
+use shared::constants::PORT;
+use shared::types::Converstation;
+use shared::types::User;
+use std::net::TcpStream;
+
+#[derive(Debug, Clone)]
+pub enum LoginMsg {
+    ChangedNameInput(String),
+    ChangedIpInput(String),
+    Connect(),
+    Login(Arc<Mutex<TcpStream>>),
+    Error(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct LoginState {
+    pub error: Option<String>,
+    pub name_input_value: String,
+    pub ip_input_value: String,
+}
+
+pub fn update(state: &mut LoginState, message: LoginMsg) -> Task<AppMsg> {
+    match message {
+        LoginMsg::ChangedNameInput(s) => {
+            state.name_input_value = s;
+            return Task::none();
+        }
+        LoginMsg::ChangedIpInput(s) => {
+            state.ip_input_value = s;
+            return Task::none();
+        }
+        LoginMsg::Connect() => {
+            if state.name_input_value.len() < 1 {
+                return Task::done(AppMsg::Login(LoginMsg::Error(String::from(
+                    "Name cant be Empty",
+                ))));
+            }
+            let ip = state.ip_input_value.clone();
+            let future = async move {
+                match TcpStream::connect(format!("{}:{}", ip, PORT)) {
+                    Ok(stream) => {
+                        return AppMsg::Login(LoginMsg::Login(Arc::new(Mutex::new(stream))));
+                    }
+                    Err(error) => {
+                        return AppMsg::Login(LoginMsg::Error(String::from(error.to_string())));
+                    }
+                };
+            };
+            return Task::future(future);
+        }
+        LoginMsg::Login(stream) => {
+            let converstations = vec![
+                Converstation {
+                    participant: Arc::new(User {
+                        name: String::from("Peter"),
+                    }),
+                    messages: Vec::new(),
+                    input_text: String::new(),
+                },
+                Converstation {
+                    participant: Arc::new(User {
+                        name: String::from("Jonas"),
+                    }),
+                    messages: Vec::new(),
+                    input_text: String::new(),
+                },
+                Converstation {
+                    participant: Arc::new(User {
+                        name: String::from("Olaf"),
+                    }),
+                    messages: Vec::new(),
+                    input_text: String::new(),
+                },
+            ];
+            let new_state = AppState::Core(CoreState {
+                stream: stream,
+                user: Arc::new(User {
+                    name: String::from(&state.name_input_value),
+                }),
+                conversations: converstations,
+                current_converstaion: 0,
+            });
+            return Task::done(AppMsg::ChangeState(new_state));
+        }
+        LoginMsg::Error(e) => {
+            state.error = Some(e);
+            return Task::none();
+        }
+    }
+}
+
+pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
+    let name_input: Element<AppMsg> = text_input("Name: ", &state.name_input_value)
+        .on_input(|x| AppMsg::Login(LoginMsg::ChangedNameInput(x)))
+        .into();
+
+    let ip_input: Element<AppMsg> = text_input("ip: ", &state.ip_input_value)
+        .on_input(|x| AppMsg::Login(LoginMsg::ChangedIpInput(x)))
+        .into();
+
+    let confirm_button: Element<AppMsg> = button("Connect")
+        .on_press(AppMsg::Login(LoginMsg::Connect()))
+        .into();
+
+    let error_display: Element<AppMsg> = match &state.error {
+        Option::Some(s) => text(s).into(),
+        Option::None => text("").into(),
+    };
+
+    return container(column([
+        error_display,
+        ip_input,
+        name_input,
+        confirm_button,
+    ]))
+    .center(Length::Fill)
+    .into();
+}
