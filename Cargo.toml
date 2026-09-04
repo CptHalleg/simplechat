@@ -1,7 +1,6 @@
 [workspace]
-members = [
-    "client",
-    "server",
-    "shared",
-]
+members = ["client", "server", "shared"]
 resolver = "2"
+
+[workspace.dependencies]
+iced = { version = "0.14.0", default-features = false }
