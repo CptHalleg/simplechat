@@ -13,8 +13,13 @@ use iced::Task;
 use iced::Theme;
 use iced::futures::Stream;
 use iced::widget::container;
+use iced::window;
+use log::debug;
+use log::info;
 
 pub fn run() {
+    info!("App starting!");
+
     iced::application(init, update, view)
         .title("Lumes")
         .theme(Theme::Dark)
@@ -46,6 +51,7 @@ fn socket_subscription(state: &AppState) -> Subscription<AppMsg> {
 }
 
 fn init() -> (AppState, Task<AppMsg>) {
+    debug!("initializing state");
     let state: AppState = AppState::Login(LoginState {
         error: Option::None,
         ip_input_value: String::from("127.0.0.1"),
@@ -55,6 +61,10 @@ fn init() -> (AppState, Task<AppMsg>) {
 }
 
 fn update(state: &mut AppState, message: AppMsg) -> Task<AppMsg> {
+    debug!(
+        "processing message:\n{:#?}\ncurrent state:\n{:#?}",
+        message, state
+    );
     match message {
         AppMsg::Test => Task::none(),
         AppMsg::Login(m) => match state {

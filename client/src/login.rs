@@ -128,11 +128,7 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
     };
 
     return container(column([
-        text("Hallo Welt")
-            .size(24)
-            .color(iced::Color::BLACK)
-            .font(iced::Font::with_name("Noto Sans"))
-            .into(),
+        text("Hallo Welt").size(24).into(),
         error_display,
         ip_input,
         name_input,

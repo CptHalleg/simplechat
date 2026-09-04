@@ -1,11 +1,11 @@
 default:
     @just --list
 
-server level="info":
+server level="debug":
     RUST_LOG={{level}} cargo watch -x "run --package server"
 
-client:
-    cargo watch -x "run --package client"
+client level="debug":
+    RUST_LOG={{level}} cargo watch -x "run --package client"
 
 web:
     trunk serve
