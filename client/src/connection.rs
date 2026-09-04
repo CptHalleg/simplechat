@@ -24,29 +24,25 @@ pub fn connect() -> impl Stream<Item = ConnectionEvent> {
             .send(ConnectionEvent::Connected(cmd_sender))
             .await
             .unwrap();
-        let connection: Option<(ewebsock::WsSender, ewebsock::WsReceiver)> = None;
+        let mut connection: Option<(ewebsock::WsSender, ewebsock::WsReceiver)> = None;
 
         loop {
-            match connection {
-                Some((mut web_sender, web_reciever)) => {
-                    select! {
-                        cmd = cmd_receiver.select_next_some() => println!(""),
-                        con = web_reciever.try_recv() => println!(""),
-                    }
-                }
+            match connection.as_mut() {
+                Some(_) => (),
                 None => {
                     let cmd = cmd_receiver.select_next_some().await;
                     match cmd {
                         ConnectionCommand::Connect { url, user_name } => {
                             let options = ewebsock::Options::default();
-                            let (mut web_sender, mut web_reciver) =
+                            let (mut web_sender, web_reciver) =
                                 ewebsock::connect(url, options).unwrap();
 
                             web_sender.send(ewebsock::WsMessage::Text("Hello!".into()));
+                            connection = Some((web_sender, web_reciver));
                         }
-                        ConnectionCommand::Send(frame) => match connection {
+                        ConnectionCommand::Send(frame) => match connection.as_mut() {
                             None => (),
-                            Some((mut web_sender, web_reciever)) => {
+                            Some((web_sender, _)) => {
                                 web_sender.send(ewebsock::WsMessage::Text(
                                     serde_json::to_string(&frame).unwrap(),
                                 ));
