@@ -16,7 +16,7 @@ use iced::widget::text_input;
 
 use crate::app::AppMsg;
 use shared::types::ChatMessage;
-use shared::types::Converstation;
+use shared::types::Room;
 use shared::types::User;
 use std::net::TcpStream;
 
@@ -32,7 +32,7 @@ pub enum CoreMsg {
 pub struct CoreState {
     pub stream: Arc<Mutex<TcpStream>>,
     pub user: Arc<User>,
-    pub conversations: Vec<Converstation>,
+    pub conversations: Vec<Room>,
     pub current_converstaion: usize,
 }
 
@@ -85,7 +85,7 @@ pub fn view(state: &CoreState) -> Element<'_, AppMsg> {
     return row([conversations_panel(state), chat]).into();
 }
 
-fn chat_panel(conversation: &Converstation) -> Element<'_, AppMsg> {
+fn chat_panel(conversation: &Room) -> Element<'_, AppMsg> {
     let message_elements: Vec<Element<AppMsg>> =
         conversation.messages.iter().map(message).collect();
 
@@ -113,7 +113,7 @@ fn message(message: &ChatMessage) -> Element<'_, AppMsg> {
         .into();
 }
 
-fn converstaion(conversation: &Converstation, selected: bool, index: usize) -> Element<'_, AppMsg> {
+fn converstaion(conversation: &Room, selected: bool, index: usize) -> Element<'_, AppMsg> {
     let user = &*conversation.participant;
     let title = if selected {
         ["<", &user.name, ">"].concat()

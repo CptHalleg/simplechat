@@ -14,9 +14,13 @@ use crate::app::AppMsg;
 use crate::app::AppState;
 use crate::core::CoreState;
 use shared::constants::PORT;
-use shared::types::Converstation;
+use shared::types::Room;
 use shared::types::User;
 use std::net::TcpStream;
+
+pub enum LoginAction {
+    ToCore(CoreState),
+}
 
 #[derive(Debug, Clone)]
 pub enum LoginMsg {
@@ -34,52 +38,53 @@ pub struct LoginState {
     pub ip_input_value: String,
 }
 
-pub fn update(state: &mut LoginState, message: LoginMsg) -> Task<AppMsg> {
+pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Option<LoginAction>) {
     match message {
         LoginMsg::ChangedNameInput(s) => {
             state.name_input_value = s;
-            return Task::none();
+            return (Task::none(), None);
         }
         LoginMsg::ChangedIpInput(s) => {
             state.ip_input_value = s;
-            return Task::none();
+            return (Task::none(), None);
         }
         LoginMsg::Connect() => {
             if state.name_input_value.len() < 1 {
-                return Task::done(AppMsg::Login(LoginMsg::Error(String::from(
-                    "Name cant be Empty",
-                ))));
+                return (
+                    Task::done(LoginMsg::Error(String::from("Name cant be Empty"))),
+                    None,
+                );
             }
             let ip = state.ip_input_value.clone();
             let future = async move {
                 match TcpStream::connect(format!("{}:{}", ip, PORT)) {
                     Ok(stream) => {
-                        return AppMsg::Login(LoginMsg::Login(Arc::new(Mutex::new(stream))));
+                        return LoginMsg::Login(Arc::new(Mutex::new(stream)));
                     }
                     Err(error) => {
-                        return AppMsg::Login(LoginMsg::Error(String::from(error.to_string())));
+                        return LoginMsg::Error(String::from(error.to_string()));
                     }
                 };
             };
-            return Task::future(future);
+            return (Task::future(future), None);
         }
         LoginMsg::Login(stream) => {
             let converstations = vec![
-                Converstation {
+                Room {
                     participant: Arc::new(User {
                         name: String::from("Peter"),
                     }),
                     messages: Vec::new(),
                     input_text: String::new(),
                 },
-                Converstation {
+                Room {
                     participant: Arc::new(User {
                         name: String::from("Jonas"),
                     }),
                     messages: Vec::new(),
                     input_text: String::new(),
                 },
-                Converstation {
+                Room {
                     participant: Arc::new(User {
                         name: String::from("Olaf"),
                     }),
@@ -87,19 +92,19 @@ pub fn update(state: &mut LoginState, message: LoginMsg) -> Task<AppMsg> {
                     input_text: String::new(),
                 },
             ];
-            let new_state = AppState::Core(CoreState {
+            let new_state = CoreState {
                 stream: stream,
                 user: Arc::new(User {
                     name: String::from(&state.name_input_value),
                 }),
                 conversations: converstations,
                 current_converstaion: 0,
-            });
-            return Task::done(AppMsg::ChangeState(new_state));
+            };
+            return (Task::none(), Some(LoginAction::ToCore(new_state)));
         }
         LoginMsg::Error(e) => {
             state.error = Some(e);
-            return Task::none();
+            return (Task::none(), None);
         }
     }
 }
@@ -123,6 +128,11 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
     };
 
     return container(column([
+        text("Hallo Welt")
+            .size(24)
+            .color(iced::Color::BLACK)
+            .font(iced::Font::with_name("Noto Sans"))
+            .into(),
         error_display,
         ip_input,
         name_input,
