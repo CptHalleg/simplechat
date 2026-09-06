@@ -1,10 +1,8 @@
-use iced::message;
-use shared::types::{
-    ChatMessage,
-    ClientToServerFrame::{self, SendMessage},
-    ServerToClientFrame::{self, RecivedMessage},
-    UserHandle,
-};
+use shared::types::ChatMessage;
+use shared::types::ClientToServerFrame::{self};
+use shared::types::ServerToClientFrame::RecivedMessage;
+use shared::types::ServerToClientFrame::{self};
+use shared::types::UserHandle;
 
 pub struct Context;
 pub struct ConnectionContext;
@@ -29,7 +27,8 @@ fn send_message(
 ) -> ServerToClientFrame {
     let response_message = ChatMessage {
         content: format!("{} to you!", message.content),
-        author: UserHandle::new(),
+        author: UserHandle::new_random(),
     };
+
     RecivedMessage(response_message)
 }

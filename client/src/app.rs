@@ -1,21 +1,17 @@
-use crate::connection;
-use crate::connection::connect;
 use crate::core;
 use crate::core::CoreMsg;
 use crate::core::CoreState;
-use crate::echo;
-use crate::echo::Event;
 use crate::login;
 use crate::login::LoginAction;
 use crate::login::LoginMsg;
 use crate::login::LoginState;
+use crate::websocket;
+use crate::websocket::Event;
 use iced::Element;
 use iced::Subscription;
 use iced::Task;
 use iced::Theme;
-use iced::futures::Stream;
 use iced::widget::container;
-use iced::window;
 use log::debug;
 use log::info;
 use shared::types::ServerToClientFrame;
@@ -33,7 +29,6 @@ pub fn run() {
 
 #[derive(Debug, Clone)]
 pub enum AppMsg {
-    Test,
     Login(LoginMsg),
     Core(CoreMsg),
 }
@@ -44,12 +39,12 @@ pub enum AppState {
     Core(CoreState),
 }
 
-fn socket_subscription(state: &AppState) -> Subscription<AppMsg> {
-    Subscription::run(echo::connect).map(|event| match event {
-        echo::Event::Initialized(instructions) => {
-            AppMsg::Login(LoginMsg::SetInstructions(instructions))
+fn socket_subscription(_state: &AppState) -> Subscription<AppMsg> {
+    Subscription::run(websocket::connect).map(|event| match event {
+        websocket::Event::Initialized(websocket) => {
+            AppMsg::Login(LoginMsg::WebSocketInitialized(websocket))
         }
-        Event::Connected => AppMsg::Login(LoginMsg::Login),
+        Event::Connected => AppMsg::Login(LoginMsg::WebsocketConnected),
         Event::Disconnected => todo!(),
         Event::MessageReceived(frame) => match frame {
             ServerToClientFrame::RecivedMessage(message) => {
@@ -63,7 +58,7 @@ fn socket_subscription(state: &AppState) -> Subscription<AppMsg> {
 fn init() -> (AppState, Task<AppMsg>) {
     debug!("initializing state");
     let state: AppState = AppState::Login(LoginState {
-        instructions: None,
+        websocket: None,
         error: Option::None,
         ip_input_value: String::from("127.0.0.1:6767"),
         name_input_value: String::new(),
@@ -77,7 +72,6 @@ fn update(state: &mut AppState, message: AppMsg) -> Task<AppMsg> {
         message, state
     );
     match message {
-        AppMsg::Test => Task::none(),
         AppMsg::Login(m) => match state {
             AppState::Login(s) => {
                 let (task, action) = login::update(s, m);

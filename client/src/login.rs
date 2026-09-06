@@ -12,8 +12,8 @@ use shared::types::UserHandle;
 
 use crate::app::AppMsg;
 use crate::core::CoreState;
-use crate::echo::Instruction::Connect;
-use crate::echo::InstructionQueue;
+use crate::websocket::Instruction::Connect;
+use crate::websocket::WebSocket;
 use shared::types::Room;
 use shared::types::User;
 
@@ -23,17 +23,18 @@ pub enum LoginAction {
 
 #[derive(Debug, Clone)]
 pub enum LoginMsg {
-    SetInstructions(InstructionQueue),
+    WebSocketInitialized(WebSocket),
     ChangedNameInput(String),
     ChangedIpInput(String),
-    Connect,
-    Login,
+    ConnectClicked,
+    RegisterClicked,
+    WebsocketConnected,
     Error(String),
 }
 
 #[derive(Debug, Clone)]
 pub struct LoginState {
-    pub instructions: Option<InstructionQueue>,
+    pub websocket: Option<WebSocket>,
     pub error: Option<String>,
     pub name_input_value: String,
     pub ip_input_value: String,
@@ -41,8 +42,8 @@ pub struct LoginState {
 
 pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Option<LoginAction>) {
     match message {
-        LoginMsg::SetInstructions(instructions) => {
-            state.instructions = Some(instructions);
+        LoginMsg::WebSocketInitialized(websocket) => {
+            state.websocket = Some(websocket);
             (Task::none(), None)
         }
         LoginMsg::ChangedNameInput(s) => {
@@ -53,14 +54,14 @@ pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Opt
             state.ip_input_value = s;
             (Task::none(), None)
         }
-        LoginMsg::Connect => match &state.instructions {
+        LoginMsg::ConnectClicked => match &state.websocket {
             Some(inst) => {
-                let mut instructions = inst.clone();
+                let mut websocket = inst.clone();
                 let address = state.ip_input_value.clone();
 
                 (
                     Task::future(async move {
-                        instructions.send(Connect(address)).await;
+                        websocket.send(Connect(address)).await;
                     })
                     .discard(),
                     None,
@@ -71,38 +72,56 @@ pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Opt
                 (Task::none(), None)
             }
         },
-        LoginMsg::Login => match &state.instructions {
+        LoginMsg::RegisterClicked => match &state.websocket {
+            Some(inst) => {
+                let mut websocket = inst.clone();
+                let address = state.ip_input_value.clone();
+
+                (
+                    Task::future(async move {
+                        websocket.send(Connect(address)).await;
+                    })
+                    .discard(),
+                    None,
+                )
+            }
+            None => {
+                state.error = Some(String::from("Websocket was not initialized"));
+                (Task::none(), None)
+            }
+        },
+        LoginMsg::WebsocketConnected => match &state.websocket {
             Some(inst) => {
                 let converstations = vec![
                     Room {
-                        participant: Arc::new(User {
-                            handle: UserHandle::new(),
+                        participant: User {
+                            handle: UserHandle::new_random(),
                             name: String::from("Peter"),
-                        }),
+                        },
                         messages: Vec::new(),
                         input_text: String::new(),
                     },
                     Room {
-                        participant: Arc::new(User {
-                            handle: UserHandle::new(),
+                        participant: User {
+                            handle: UserHandle::new_random(),
                             name: String::from("Jonas"),
-                        }),
+                        },
                         messages: Vec::new(),
                         input_text: String::new(),
                     },
                     Room {
-                        participant: Arc::new(User {
-                            handle: UserHandle::new(),
+                        participant: User {
+                            handle: UserHandle::new_random(),
                             name: String::from("Olaf"),
-                        }),
+                        },
                         messages: Vec::new(),
                         input_text: String::new(),
                     },
                 ];
                 let new_state = CoreState {
-                    instructions: inst.clone(),
+                    websocket: inst.clone(),
                     user: Arc::new(User {
-                        handle: UserHandle::new(),
+                        handle: UserHandle::new_random(),
                         name: String::from(&state.name_input_value),
                     }),
                     conversations: converstations,
@@ -132,7 +151,11 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
         .into();
 
     let confirm_button: Element<AppMsg> = button("Connect")
-        .on_press(AppMsg::Login(LoginMsg::Connect))
+        .on_press(AppMsg::Login(LoginMsg::ConnectClicked))
+        .into();
+
+    let register_button: Element<AppMsg> = button("Register")
+        .on_press(AppMsg::Login(LoginMsg::RegisterClicked))
         .into();
 
     let error_display: Element<AppMsg> = match &state.error {
@@ -146,6 +169,7 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
         ip_input,
         name_input,
         confirm_button,
+        register_button,
     ]))
     .center(Length::Fill)
     .into();

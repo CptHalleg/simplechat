@@ -1,6 +1,6 @@
 use rand::Rng;
-use serde::{Deserialize, Serialize};
-use std::{range, sync::Arc};
+use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ClientToServerFrame {
@@ -15,13 +15,17 @@ pub enum ServerToClientFrame {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserHandle {
-    id: u64,
+    pub url: String,
+    pub user_name: String,
 }
 
 impl UserHandle {
-    pub fn new() -> Self {
+    pub fn new_random() -> Self {
         let mut rng = rand::rng();
-        UserHandle { id: rng.random() }
+        UserHandle {
+            url: String::from(rng.random::<char>()),
+            user_name: String::from(rng.random::<char>()),
+        }
     }
 }
 
@@ -37,9 +41,9 @@ pub struct User {
     pub name: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Room {
-    pub participant: Arc<User>,
+    pub participant: User,
     pub messages: Vec<ChatMessage>,
     pub input_text: String,
 }

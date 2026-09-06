@@ -1,22 +1,17 @@
 [package]
-name = "profile-server"
+name = "server-shared"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 shared = { path = "../shared" }
-server-shared = { path = "../server-shared" }
 
 log = { workspace = true }
 env_logger = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+dotenvy = { workspace = true }
+sqlx = { workspace = true, features = ["postgres"] }
 
-sqlx = { workspace = true, features = [
-    "postgres",
-    "macros",
-    "runtime-tokio",
-    "time",
-] }
 tokio = { workspace = true, features = ["full"] }
 warp = { workspace = true, features = ["server"] }

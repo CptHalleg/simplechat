@@ -14,8 +14,8 @@ use iced::widget::text_input;
 use shared::types::ClientToServerFrame;
 
 use crate::app::AppMsg;
-use crate::echo::Instruction;
-use crate::echo::InstructionQueue;
+use crate::websocket::Instruction;
+use crate::websocket::WebSocket;
 use shared::types::ChatMessage;
 use shared::types::Room;
 use shared::types::User;
@@ -30,7 +30,7 @@ pub enum CoreMsg {
 
 #[derive(Debug, Clone)]
 pub struct CoreState {
-    pub instructions: InstructionQueue,
+    pub websocket: WebSocket,
     pub user: Arc<User>,
     pub conversations: Vec<Room>,
     pub current_converstaion: usize,
@@ -65,10 +65,10 @@ pub fn update(state: &mut CoreState, message: CoreMsg) -> Task<AppMsg> {
                 c.messages.push(new_message.clone());
                 c.input_text.clear();
 
-                let mut instructions_clone = state.instructions.clone();
+                let mut websocket_clone = state.websocket.clone();
                 let new_message_clone = new_message.clone();
                 Task::future(async move {
-                    instructions_clone
+                    websocket_clone
                         .send(Instruction::SendMessage(ClientToServerFrame::SendMessage(
                             new_message_clone,
                         )))
@@ -125,7 +125,7 @@ fn message(message: &ChatMessage) -> Element<'_, AppMsg> {
 }
 
 fn converstaion(conversation: &Room, selected: bool, index: usize) -> Element<'_, AppMsg> {
-    let user = &*conversation.participant;
+    let user = &conversation.participant;
     let title = if selected {
         ["<", &user.name, ">"].concat()
     } else {

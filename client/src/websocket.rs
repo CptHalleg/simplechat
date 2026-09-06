@@ -1,22 +1,25 @@
 use async_tungstenite::tokio::ConnectStream;
 use iced::futures;
 use iced::futures::stream::Fuse;
-use iced::task::{Never, Sipper, sipper};
+use iced::task::Never;
+use iced::task::Sipper;
+use iced::task::sipper;
 
 use futures::channel::mpsc;
 use futures::sink::SinkExt;
 use futures::stream::StreamExt;
 
-use async_tungstenite::{WebSocketStream, tungstenite};
-use log::{debug, info};
-use shared::types::{ClientToServerFrame, ServerToClientFrame};
+use async_tungstenite::WebSocketStream;
+use async_tungstenite::tungstenite;
+use log::debug;
+use log::info;
+use shared::types::ClientToServerFrame;
+use shared::types::ServerToClientFrame;
 
 pub fn connect() -> impl Sipper<Never, Event> {
     sipper(async |mut output| {
         let (sender, mut instructions) = mpsc::channel::<Instruction>(100);
-        output
-            .send(Event::Initialized(InstructionQueue(sender)))
-            .await;
+        output.send(Event::Initialized(WebSocket(sender))).await;
 
         let mut connection: Option<Fuse<WebSocketStream<ConnectStream>>> = None;
 
@@ -100,7 +103,7 @@ pub fn connect() -> impl Sipper<Never, Event> {
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Initialized(InstructionQueue),
+    Initialized(WebSocket),
     Connected,
     Disconnected,
     MessageReceived(ServerToClientFrame),
@@ -108,7 +111,7 @@ pub enum Event {
 }
 
 #[derive(Debug, Clone)]
-pub struct InstructionQueue(mpsc::Sender<Instruction>);
+pub struct WebSocket(mpsc::Sender<Instruction>);
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
@@ -117,7 +120,7 @@ pub enum Instruction {
     SendMessage(ClientToServerFrame),
 }
 
-impl InstructionQueue {
+impl WebSocket {
     pub async fn send(&mut self, intsruction: Instruction) {
         self.0.send(intsruction).await.unwrap()
     }

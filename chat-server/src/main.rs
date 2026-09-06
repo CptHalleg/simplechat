@@ -2,7 +2,7 @@ use log::info;
 
 mod handlers;
 mod websocket;
-use tokio::signal::unix::{SignalKind, signal};
+use server_shared::serve_and_run;
 use warp::Filter;
 
 #[tokio::main]
@@ -13,14 +13,5 @@ pub async fn main() {
         .and(warp::ws())
         .map(|ws: warp::ws::Ws| ws.on_upgrade(websocket::user_connected));
 
-    warp::serve(routes)
-        .bind(([127, 0, 0, 1], 6767))
-        .await
-        .graceful(async move {
-            let mut terminate =
-                signal(SignalKind::terminate()).expect("failed to listen to shutdown signal");
-            terminate.recv().await;
-        })
-        .run()
-        .await;
+    serve_and_run(routes).await;
 }

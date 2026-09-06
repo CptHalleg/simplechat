@@ -1,13 +1,19 @@
-use iced::{futures, message};
+use iced::futures;
 
+use futures::SinkExt;
+use futures::StreamExt;
 use futures::channel::mpsc;
-use futures::{SinkExt, StreamExt};
-use log::{error, info};
-use shared::types::{ClientToServerFrame, ServerToClientFrame};
+use log::error;
+use log::info;
+use shared::types::ClientToServerFrame;
+use shared::types::ServerToClientFrame;
 use warp::filters::ws::Message;
 use warp::ws::WebSocket;
 
-use crate::handlers::{ConnectionContext, Context, handle};
+use crate::handlers::ConnectionContext;
+use crate::handlers::Context;
+use crate::handlers::handle;
+
 pub async fn user_connected(ws: WebSocket) {
     info!("websocket connected");
     let (mut user_ws_tx, mut user_ws_rx) = ws.split();

@@ -1,8 +1,17 @@
 default:
-    @just --list
+    @just --choose
+
+prepare:
+    DATABASE_URL="postgres://lukas@localhost/simplechat_profile" cargo sqlx prepare --workspace
 
 chat-server level="debug":
     RUST_LOG={{level}} cargo watch -x "run --package chat-server"
+
+profile-server level="debug":
+    RUST_LOG={{level}} cargo watch -x "run --package profile-server"
+
+community-server level="debug":
+    RUST_LOG={{level}} cargo watch -x "run --package community-server"
 
 client level="debug":
     RUST_LOG={{level}} cargo watch -x "run --package client"
@@ -13,15 +22,14 @@ web:
 db:
     brew services start postgresql
 
-db-reset:
-    set -a
-    source .env
-    set +a
+db-reset-profile:
+    . ./.env && \
     psql \
-        --username postgres \
         --dbname postgres \
-        --set=db_password="$APP_USER_PASSWORD" \
-        --file=init.sql
+        --set=user_password="$PROFILE_USER_PASSWORD" \
+        --file=profile-server/init.sql
+    
+    sqlx migrate run --source profile-server/migrations
 
 all:
     tmux kill-session -t simplechat 2>/dev/null || true

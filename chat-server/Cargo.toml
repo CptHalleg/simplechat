@@ -5,6 +5,8 @@ edition = "2024"
 
 [dependencies]
 shared = { path = "../shared" }
+server-shared = { path = "../server-shared" }
+
 log = { workspace = true }
 env_logger = { workspace = true }
 serde_json = { workspace = true }
