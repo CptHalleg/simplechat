@@ -5,6 +5,7 @@ stuff you need to install:
 just
 tmux
 trunk
+mysql
 
 rust stuff:
 rustup target add wasm32-unknown-unknown

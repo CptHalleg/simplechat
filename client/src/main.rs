@@ -3,6 +3,7 @@ use log::{debug, info};
 mod app;
 mod connection;
 mod core;
+mod echo;
 mod login;
 
 fn main() {

@@ -3,6 +3,8 @@ use crate::connection::connect;
 use crate::core;
 use crate::core::CoreMsg;
 use crate::core::CoreState;
+use crate::echo;
+use crate::echo::Event;
 use crate::login;
 use crate::login::LoginAction;
 use crate::login::LoginMsg;
@@ -16,13 +18,14 @@ use iced::widget::container;
 use iced::window;
 use log::debug;
 use log::info;
+use shared::types::ServerToClientFrame;
 
 pub fn run() {
     info!("App starting!");
 
     iced::application(init, update, view)
         .title("Lumes")
-        .theme(Theme::Dark)
+        .theme(Theme::Light)
         .subscription(socket_subscription)
         .run()
         .expect("failed to start applciation");
@@ -42,19 +45,27 @@ pub enum AppState {
 }
 
 fn socket_subscription(state: &AppState) -> Subscription<AppMsg> {
-    match state {
-        AppState::Core(_) => println!("subscription: core"),
-        AppState::Login(_) => println!("subscription: login"),
-    }
-
-    Subscription::run(connection::connect).map(|_| AppMsg::Test)
+    Subscription::run(echo::connect).map(|event| match event {
+        echo::Event::Initialized(instructions) => {
+            AppMsg::Login(LoginMsg::SetInstructions(instructions))
+        }
+        Event::Connected => AppMsg::Login(LoginMsg::Login),
+        Event::Disconnected => todo!(),
+        Event::MessageReceived(frame) => match frame {
+            ServerToClientFrame::RecivedMessage(message) => {
+                AppMsg::Core(CoreMsg::RecievedMessage(message))
+            }
+        },
+        Event::Error(error) => AppMsg::Login(LoginMsg::Error(error)),
+    })
 }
 
 fn init() -> (AppState, Task<AppMsg>) {
     debug!("initializing state");
     let state: AppState = AppState::Login(LoginState {
+        instructions: None,
         error: Option::None,
-        ip_input_value: String::from("127.0.0.1"),
+        ip_input_value: String::from("127.0.0.1:6767"),
         name_input_value: String::new(),
     });
     return (state, Task::none());
@@ -86,6 +97,7 @@ fn update(state: &mut AppState, message: AppMsg) -> Task<AppMsg> {
 }
 
 fn view(state: &AppState) -> Element<'_, AppMsg> {
+    debug!("render view");
     let ele = match state {
         AppState::Login(s) => login::view(s),
         AppState::Core(s) => core::view(s),

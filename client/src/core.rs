@@ -1,6 +1,4 @@
-use std::io::Write;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use iced::Element;
 use iced::Font;
@@ -13,24 +11,26 @@ use iced::widget::row;
 use iced::widget::scrollable;
 use iced::widget::text;
 use iced::widget::text_input;
+use shared::types::ClientToServerFrame;
 
 use crate::app::AppMsg;
+use crate::echo::Instruction;
+use crate::echo::InstructionQueue;
 use shared::types::ChatMessage;
 use shared::types::Room;
 use shared::types::User;
-use std::net::TcpStream;
 
 #[derive(Debug, Clone)]
 pub enum CoreMsg {
     ChangedMessageInput(String),
     SendMessage(),
-    RecievedMessage(),
+    RecievedMessage(ChatMessage),
     SelectConversation(usize),
 }
 
 #[derive(Debug, Clone)]
 pub struct CoreState {
-    pub stream: Arc<Mutex<TcpStream>>,
+    pub instructions: InstructionQueue,
     pub user: Arc<User>,
     pub conversations: Vec<Room>,
     pub current_converstaion: usize,
@@ -45,31 +45,42 @@ pub fn update(state: &mut CoreState, message: CoreMsg) -> Task<AppMsg> {
                 }
                 Option::None => (),
             }
-            return Task::none();
+            Task::none()
         }
-        CoreMsg::RecievedMessage() => {
-            return Task::none();
-        }
-        CoreMsg::SendMessage() => {
+        CoreMsg::RecievedMessage(message) => {
             match state.conversations.get_mut(state.current_converstaion) {
                 Option::Some(c) => {
-                    let new_message = ChatMessage {
-                        content: c.input_text.clone(),
-                        author: state.user.clone(),
-                    };
-                    if let Ok(mut stream) = state.stream.lock() {
-                        let _ = stream.write_all(new_message.content.as_bytes());
-                    }
-                    c.messages.push(new_message);
-                    c.input_text.clear();
+                    c.messages.push(message);
+                    Task::none()
                 }
-                Option::None => (),
+                Option::None => Task::none(),
             }
-            return Task::none();
         }
+        CoreMsg::SendMessage() => match state.conversations.get_mut(state.current_converstaion) {
+            Option::Some(c) => {
+                let new_message = ChatMessage {
+                    content: c.input_text.clone(),
+                    author: state.user.handle.clone(),
+                };
+                c.messages.push(new_message.clone());
+                c.input_text.clear();
+
+                let mut instructions_clone = state.instructions.clone();
+                let new_message_clone = new_message.clone();
+                Task::future(async move {
+                    instructions_clone
+                        .send(Instruction::SendMessage(ClientToServerFrame::SendMessage(
+                            new_message_clone,
+                        )))
+                        .await;
+                })
+                .discard()
+            }
+            Option::None => Task::none(),
+        },
         CoreMsg::SelectConversation(i) => {
             state.current_converstaion = i;
-            return Task::none();
+            Task::none()
         }
     }
 }
@@ -104,7 +115,7 @@ fn chat_panel(conversation: &Room) -> Element<'_, AppMsg> {
 }
 
 fn message(message: &ChatMessage) -> Element<'_, AppMsg> {
-    let name_label = text(message.author.name.clone() + ":").font(Font {
+    let name_label = text("message.author.name.clone() :").font(Font {
         weight: Weight::Bold,
         ..Font::DEFAULT
     });

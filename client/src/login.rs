@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use iced::Element;
 use iced::Length;
@@ -9,14 +8,14 @@ use iced::widget::column;
 use iced::widget::container;
 use iced::widget::text;
 use iced::widget::text_input;
+use shared::types::UserHandle;
 
 use crate::app::AppMsg;
-use crate::app::AppState;
 use crate::core::CoreState;
-use shared::constants::PORT;
+use crate::echo::Instruction::Connect;
+use crate::echo::InstructionQueue;
 use shared::types::Room;
 use shared::types::User;
-use std::net::TcpStream;
 
 pub enum LoginAction {
     ToCore(CoreState),
@@ -24,15 +23,17 @@ pub enum LoginAction {
 
 #[derive(Debug, Clone)]
 pub enum LoginMsg {
+    SetInstructions(InstructionQueue),
     ChangedNameInput(String),
     ChangedIpInput(String),
-    Connect(),
-    Login(Arc<Mutex<TcpStream>>),
+    Connect,
+    Login,
     Error(String),
 }
 
 #[derive(Debug, Clone)]
 pub struct LoginState {
+    pub instructions: Option<InstructionQueue>,
     pub error: Option<String>,
     pub name_input_value: String,
     pub ip_input_value: String,
@@ -40,71 +41,83 @@ pub struct LoginState {
 
 pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Option<LoginAction>) {
     match message {
+        LoginMsg::SetInstructions(instructions) => {
+            state.instructions = Some(instructions);
+            (Task::none(), None)
+        }
         LoginMsg::ChangedNameInput(s) => {
             state.name_input_value = s;
-            return (Task::none(), None);
+            (Task::none(), None)
         }
         LoginMsg::ChangedIpInput(s) => {
             state.ip_input_value = s;
-            return (Task::none(), None);
+            (Task::none(), None)
         }
-        LoginMsg::Connect() => {
-            if state.name_input_value.len() < 1 {
-                return (
-                    Task::done(LoginMsg::Error(String::from("Name cant be Empty"))),
+        LoginMsg::Connect => match &state.instructions {
+            Some(inst) => {
+                let mut instructions = inst.clone();
+                let address = state.ip_input_value.clone();
+
+                (
+                    Task::future(async move {
+                        instructions.send(Connect(address)).await;
+                    })
+                    .discard(),
                     None,
-                );
+                )
             }
-            let ip = state.ip_input_value.clone();
-            let future = async move {
-                match TcpStream::connect(format!("{}:{}", ip, PORT)) {
-                    Ok(stream) => {
-                        return LoginMsg::Login(Arc::new(Mutex::new(stream)));
-                    }
-                    Err(error) => {
-                        return LoginMsg::Error(String::from(error.to_string()));
-                    }
+            None => {
+                state.error = Some(String::from("Websocket was not initialized"));
+                (Task::none(), None)
+            }
+        },
+        LoginMsg::Login => match &state.instructions {
+            Some(inst) => {
+                let converstations = vec![
+                    Room {
+                        participant: Arc::new(User {
+                            handle: UserHandle::new(),
+                            name: String::from("Peter"),
+                        }),
+                        messages: Vec::new(),
+                        input_text: String::new(),
+                    },
+                    Room {
+                        participant: Arc::new(User {
+                            handle: UserHandle::new(),
+                            name: String::from("Jonas"),
+                        }),
+                        messages: Vec::new(),
+                        input_text: String::new(),
+                    },
+                    Room {
+                        participant: Arc::new(User {
+                            handle: UserHandle::new(),
+                            name: String::from("Olaf"),
+                        }),
+                        messages: Vec::new(),
+                        input_text: String::new(),
+                    },
+                ];
+                let new_state = CoreState {
+                    instructions: inst.clone(),
+                    user: Arc::new(User {
+                        handle: UserHandle::new(),
+                        name: String::from(&state.name_input_value),
+                    }),
+                    conversations: converstations,
+                    current_converstaion: 0,
                 };
-            };
-            return (Task::future(future), None);
-        }
-        LoginMsg::Login(stream) => {
-            let converstations = vec![
-                Room {
-                    participant: Arc::new(User {
-                        name: String::from("Peter"),
-                    }),
-                    messages: Vec::new(),
-                    input_text: String::new(),
-                },
-                Room {
-                    participant: Arc::new(User {
-                        name: String::from("Jonas"),
-                    }),
-                    messages: Vec::new(),
-                    input_text: String::new(),
-                },
-                Room {
-                    participant: Arc::new(User {
-                        name: String::from("Olaf"),
-                    }),
-                    messages: Vec::new(),
-                    input_text: String::new(),
-                },
-            ];
-            let new_state = CoreState {
-                stream: stream,
-                user: Arc::new(User {
-                    name: String::from(&state.name_input_value),
-                }),
-                conversations: converstations,
-                current_converstaion: 0,
-            };
-            return (Task::none(), Some(LoginAction::ToCore(new_state)));
-        }
+                (Task::none(), Some(LoginAction::ToCore(new_state)))
+            }
+            None => {
+                state.error = Some(String::from("Websocket was not initialized"));
+                (Task::none(), None)
+            }
+        },
         LoginMsg::Error(e) => {
             state.error = Some(e);
-            return (Task::none(), None);
+            (Task::none(), None)
         }
     }
 }
@@ -119,7 +132,7 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
         .into();
 
     let confirm_button: Element<AppMsg> = button("Connect")
-        .on_press(AppMsg::Login(LoginMsg::Connect()))
+        .on_press(AppMsg::Login(LoginMsg::Connect))
         .into();
 
     let error_display: Element<AppMsg> = match &state.error {

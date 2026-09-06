@@ -1,0 +1,15 @@
+[package]
+name = "chat-server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shared = { path = "../shared" }
+log = { workspace = true }
+env_logger = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+
+tokio = { workspace = true, features = ["full"] }
+iced = { workspace = true, features = ["sipper", "tokio"] }
+warp = { workspace = true, features = ["websocket", "server"] }
