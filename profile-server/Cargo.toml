@@ -20,3 +20,4 @@ sqlx = { workspace = true, features = [
 ] }
 tokio = { workspace = true, features = ["full"] }
 warp = { workspace = true, features = ["server"] }
+axum = { workspace = true }

@@ -1,73 +1,70 @@
+use axum::Json;
+use axum::Router;
+use axum::extract::Path;
+use axum::extract::State;
+use axum::routing::get;
 use log::info;
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
-use shared::endpoints::{CrudMethod, Endpoint, PathSegment};
+use shared::endpoints::Endpoint;
+use shared::endpoints::Parameters;
+use shared::endpoints::Route;
 use sqlx::{Pool, Postgres};
-use warp::Filter;
 use warp::http::StatusCode;
-use warp::path;
 
-use crate::routes;
+#[derive(Clone)]
+pub struct Context {
+    pub pool: Pool<Postgres>,
+    pub me_url: String,
+}
 
 pub struct RouteBuilder {
-    route: warp::filters::BoxedFilter<()>,
+    router: Router<()>,
 
-    pool: Pool<Postgres>,
-    me_url: String,
+    context: Context,
 }
 
 impl RouteBuilder {
-    //pub fn new(pool: Pool<Postgres>, me_url: String) -> Self {,pool, me_url}
-
-    pub fn build(
-        self,
-    ) -> impl Filter<Extract = (), Error = warp::Rejection> + Clone + Send + Sync + 'static {
-        self.route
+    pub fn new(pool: Pool<Postgres>, me_url: String) -> Self {
+        Self {
+            router: Router::new(),
+            context: Context { pool, me_url },
+        }
     }
 
-    pub fn route<Path, In, Out, End, Han, Fut>(
-        self,
-        _end: End,
-        handler: Han,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone
+    pub fn build(self) -> Router<()> {
+        self.router
+    }
+
+    pub fn route<Rout, Params, In, Out, End, Han, Fut>(self, _end: End, handler: Han) -> Self
     where
-        Path: PathSegment,
+        Rout: Route,
+        Params: Parameters<Rout> + DeserializeOwned + Send + 'static,
         In: DeserializeOwned + Send + 'static,
         Out: Serialize + Send + 'static,
-        End: Endpoint<Input = In, Output = Out, Path = Path>,
-        Han: Fn(End::Input, Pool<Postgres>, String) -> Fut + Send + Sync + Clone + 'static,
-        Fut: Future<Output = Result<End::Output, (StatusCode, String)>> + Send + 'static,
+        End: Endpoint<Input = In, Output = Out, Parameters = Params, Route = Rout>,
+        Han: Fn(Context, Params, In) -> Fut + Clone + Send + Sync + 'static,
+        Fut: Future<Output = Result<Out, String>> + Send + 'static,
     {
-        let method_filter = match End::METHOD {
-            CrudMethod::Read => warp::get().boxed(),
-            CrudMethod::Create => warp::post().boxed(),
-            CrudMethod::Update => warp::put().boxed(),
-            CrudMethod::Delete => warp::delete().boxed(),
-        };
+        info!("registering request {}", Params::get_route_string());
+        let x = self.router.route(
+            &Params::get_route_string(),
+            get(
+                async move |State(state): State<Context>,
+                            Path(path): Path<Params>,
+                            Json(json): Json<In>|
+                            -> Result<Json<Out>, String> {
+                    info!("recieved request {}", Params::get_route_string());
+                    handler(state, path, json).await.map(|x| Json(x))
+                },
+            )
+            .with_state(self.context.clone()),
+        );
 
-        self.route
-            .and(method_filter)
-            .and(warp::body::json())
-            .and_then(move |payload: In| {
-                let pool = self.pool.clone();
-                let me_url = self.me_url.clone();
-
-                let future = handler(payload, pool, me_url);
-
-                async move {
-                    match future.await {
-                        Ok(response) => Ok::<_, warp::Rejection>(warp::reply::with_status(
-                            warp::reply::json(&response),
-                            warp::http::StatusCode::OK,
-                        )),
-                        Err((status_code, error)) => Ok(warp::reply::with_status(
-                            warp::reply::json(&serde_json::json!({
-                                "error": error
-                            })),
-                            status_code,
-                        )),
-                    }
-                }
-            })
+        RouteBuilder {
+            router: x,
+            context: self.context,
+        }
     }
 }
