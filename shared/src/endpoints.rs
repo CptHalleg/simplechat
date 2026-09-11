@@ -1,48 +1,13 @@
 use std::fmt::Display;
-use std::{marker::PhantomData, str::FromStr};
 
-use macros::params;
-use macros::route_capture;
-use macros::route_constant;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-
+use crate::parameters::GetUserParams;
+use crate::parameters::NoParams;
+use crate::parameters::Parameters;
 use crate::payloads::*;
-
-pub trait Route {}
-pub trait RouteSegment<N>: Route
-where
-    N: Route,
-{
-}
-pub trait RouteCapture<N>: RouteSegment<N>
-where
-    N: Route,
-{
-    const NAME: &'static str;
-    type Ty: Serialize + DeserializeOwned;
-}
-pub trait RouteConstant<N>: RouteSegment<N>
-where
-    N: Route,
-{
-    const VALUE: &'static str;
-}
-
-pub struct EndRoute;
-impl Route for EndRoute {}
-
-route_constant!(Users);
-route_constant!(Communities);
-
-route_capture!(UserId: u64);
-route_capture!(CommunityId: u32);
-
-pub enum PathSegmentKind {
-    Const(String),
-    String,
-    U32,
-}
+use crate::route::EndRoute;
+use crate::route::Route;
+use crate::route::UserId;
+use crate::route::Users;
 
 pub enum CrudMethod {
     Create,
@@ -60,30 +25,13 @@ impl Display for CrudMethod {
         }
     }
 }
-
-#[derive(Deserialize, Clone)]
-#[params(Users)]
-#[params()]
-pub struct NoParams;
-
-#[derive(Deserialize, Clone)]
-#[params(Users, {UserId})]
-pub struct GetUserParams;
-
-pub trait Parameters<R>
-where
-    R: Route,
-{
-    fn get_route_string() -> String;
-}
-
 pub trait Endpoint {
     const METHOD: CrudMethod;
 
     type Route: Route;
     type Parameters: Parameters<Self::Route>;
-    type Input: DeserializeOwned + Send + 'static;
-    type Output: Serialize + Send + 'static;
+    type Input: PayloadIn;
+    type Output: PayloadOut;
 }
 
 pub struct CreateUserProfileEndpoint;

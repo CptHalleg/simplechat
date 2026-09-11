@@ -22,7 +22,7 @@ pub fn run() {
 
     iced::application(init, update, view)
         .title("Lumes")
-        .theme(Theme::Light)
+        .theme(Theme::Dark)
         .subscription(socket_subscription)
         .run()
         .expect("failed to start applciation");

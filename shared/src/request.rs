@@ -3,8 +3,11 @@ use reqwest::Client;
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
-    endpoints::{CrudMethod, Endpoint, Parameters, Route},
+    endpoints::{CrudMethod, Endpoint},
+    parameters::Parameters,
+    payloads::{PayloadIn, PayloadOut},
     request::Error::{Invalid, NoConnection},
+    route::Route,
 };
 
 pub enum Error {
@@ -19,9 +22,9 @@ pub async fn request<Rout, Params, In, Out, End>(
 ) -> Result<Out, Error>
 where
     Rout: Route,
-    Params: Parameters<Rout> + DeserializeOwned + Send + 'static,
-    In: Serialize + Send + 'static,
-    Out: DeserializeOwned + Send + 'static,
+    Params: Parameters<Rout>,
+    In: PayloadIn,
+    Out: PayloadOut,
     End: Endpoint<Input = In, Output = Out, Parameters = Params, Route = Rout>,
 {
     let url = format!("http://localhost:3000{}", Params::get_route_string());

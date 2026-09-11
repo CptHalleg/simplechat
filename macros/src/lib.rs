@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Ident, ItemStruct, Token, Type, braced,
+    DeriveInput, Ident, ItemStruct, Token, Type, braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
@@ -10,6 +10,26 @@ use syn::{
 
 use crate::SegmendKind::{Capture, Constant};
 use proc_macro2::{Span, TokenStream as TokenStream2};
+
+#[proc_macro_derive(PayloadIn)]
+pub fn derive_payload_in(item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    let ident = input.ident;
+
+    let expanded = quote!(impl PayloadIn for #ident {});
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(PayloadOut)]
+pub fn derive_payload_out(item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    let ident = input.ident;
+
+    let expanded = quote!(impl PayloadOut for #ident {});
+
+    TokenStream::from(expanded)
+}
 
 fn to_snake_case(s: &str) -> String {
     let mut result = String::new();

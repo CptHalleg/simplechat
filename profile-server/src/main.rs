@@ -1,9 +1,7 @@
 use axum::{Router, routing::get};
 use log::info;
 use server_shared::{database::db_pool, routes::RouteBuilder};
-use shared::endpoints::{
-    CreateUserProfileEndpoint, GetUserParams, GetUserProfileEndpoint, TestProfileEndpoint,
-};
+use shared::endpoints::{CreateUserProfileEndpoint, GetUserProfileEndpoint, TestProfileEndpoint};
 use warp::path;
 
 use crate::handlers::{create_user, get_test, get_user};

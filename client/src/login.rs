@@ -186,8 +186,8 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
 
     return container(column([
         text("SimpleChat").size(30).into(),
-        text("login").size(24).into(),
         error_display,
+        text("login").size(24).into(),
         ip_input,
         name_input,
         confirm_button,

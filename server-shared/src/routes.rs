@@ -8,15 +8,15 @@ use axum::routing::get;
 use axum::routing::post;
 use axum::routing::put;
 use log::info;
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 use shared::endpoints::CrudMethod;
 use shared::endpoints::Endpoint;
-use shared::endpoints::Parameters;
-use shared::endpoints::Route;
+use shared::parameters::Parameters;
+use shared::payloads::PayloadIn;
+use shared::payloads::PayloadOut;
+use shared::route::Route;
 use sqlx::{Pool, Postgres};
-use warp::http::StatusCode;
 
 #[derive(Clone)]
 pub struct Context {
@@ -45,9 +45,9 @@ impl RouteBuilder {
     pub fn route<Rout, Params, In, Out, End, Han, Fut>(self, _end: End, handler: Han) -> Self
     where
         Rout: Route,
-        Params: Parameters<Rout> + DeserializeOwned + Send + 'static,
-        In: DeserializeOwned + Send + 'static,
-        Out: Serialize + Send + 'static,
+        Params: Parameters<Rout>,
+        In: PayloadIn,
+        Out: PayloadOut,
         End: Endpoint<Input = In, Output = Out, Parameters = Params, Route = Rout>,
         Han: Fn(Context, Params, In) -> Fut + Clone + Send + Sync + 'static,
         Fut: Future<Output = Result<Out, String>> + Send + 'static,
