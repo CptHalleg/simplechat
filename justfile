@@ -13,7 +13,7 @@ profile-server level="debug":
 community-server level="debug":
     RUST_LOG={{level}} cargo watch -x "run --package community-server"
 
-client level="debug":
+client level="info":
     RUST_LOG={{level}} cargo watch -x "run --package client"
 
 web:

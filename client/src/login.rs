@@ -8,6 +8,10 @@ use iced::widget::column;
 use iced::widget::container;
 use iced::widget::text;
 use iced::widget::text_input;
+use reqwest::Client;
+use shared::endpoints::CreateUserProfileEndpoint;
+use shared::payloads::InCreateUser;
+use shared::request::request;
 use shared::types::UserHandle;
 
 use crate::app::AppMsg;
@@ -26,6 +30,8 @@ pub enum LoginMsg {
     WebSocketInitialized(WebSocket),
     ChangedNameInput(String),
     ChangedIpInput(String),
+    ChangedRegisterNameInput(String),
+    ChangedRegisterIpInput(String),
     ConnectClicked,
     RegisterClicked,
     WebsocketConnected,
@@ -34,10 +40,13 @@ pub enum LoginMsg {
 
 #[derive(Debug, Clone)]
 pub struct LoginState {
+    pub client: Client,
     pub websocket: Option<WebSocket>,
     pub error: Option<String>,
     pub name_input_value: String,
     pub ip_input_value: String,
+    pub register_name_input_value: String,
+    pub register_ip_input_value: String,
 }
 
 pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Option<LoginAction>) {
@@ -52,6 +61,14 @@ pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Opt
         }
         LoginMsg::ChangedIpInput(s) => {
             state.ip_input_value = s;
+            (Task::none(), None)
+        }
+        LoginMsg::ChangedRegisterNameInput(s) => {
+            state.register_name_input_value = s;
+            (Task::none(), None)
+        }
+        LoginMsg::ChangedRegisterIpInput(s) => {
+            state.register_ip_input_value = s;
             (Task::none(), None)
         }
         LoginMsg::ConnectClicked => match &state.websocket {
@@ -72,24 +89,19 @@ pub fn update(state: &mut LoginState, message: LoginMsg) -> (Task<LoginMsg>, Opt
                 (Task::none(), None)
             }
         },
-        LoginMsg::RegisterClicked => match &state.websocket {
-            Some(inst) => {
-                let mut websocket = inst.clone();
-                let address = state.ip_input_value.clone();
-
-                (
-                    Task::future(async move {
-                        websocket.send(Connect(address)).await;
-                    })
-                    .discard(),
-                    None,
-                )
-            }
-            None => {
-                state.error = Some(String::from("Websocket was not initialized"));
-                (Task::none(), None)
-            }
-        },
+        LoginMsg::RegisterClicked => {
+            let input = InCreateUser {
+                name: state.name_input_value.clone(),
+            };
+            let new_client = state.client.clone();
+            (
+                Task::future(async move {
+                    let _ = request(CreateUserProfileEndpoint, new_client, input).await;
+                })
+                .discard(),
+                None,
+            )
+        }
         LoginMsg::WebsocketConnected => match &state.websocket {
             Some(inst) => {
                 let converstations = vec![
@@ -154,6 +166,15 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
         .on_press(AppMsg::Login(LoginMsg::ConnectClicked))
         .into();
 
+    let register_name_input: Element<AppMsg> =
+        text_input("Name: ", &state.register_name_input_value)
+            .on_input(|x| AppMsg::Login(LoginMsg::ChangedRegisterNameInput(x)))
+            .into();
+
+    let register_ip_input: Element<AppMsg> = text_input("ip: ", &state.register_ip_input_value)
+        .on_input(|x| AppMsg::Login(LoginMsg::ChangedRegisterIpInput(x)))
+        .into();
+
     let register_button: Element<AppMsg> = button("Register")
         .on_press(AppMsg::Login(LoginMsg::RegisterClicked))
         .into();
@@ -164,11 +185,15 @@ pub fn view(state: &LoginState) -> Element<'_, AppMsg> {
     };
 
     return container(column([
-        text("Hallo Welt").size(24).into(),
+        text("SimpleChat").size(30).into(),
+        text("login").size(24).into(),
         error_display,
         ip_input,
         name_input,
         confirm_button,
+        text("register").size(24).into(),
+        register_ip_input,
+        register_name_input,
         register_button,
     ]))
     .center(Length::Fill)

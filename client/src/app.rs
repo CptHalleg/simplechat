@@ -14,6 +14,7 @@ use iced::Theme;
 use iced::widget::container;
 use log::debug;
 use log::info;
+use reqwest::Client;
 use shared::types::ServerToClientFrame;
 
 pub fn run() {
@@ -58,10 +59,13 @@ fn socket_subscription(_state: &AppState) -> Subscription<AppMsg> {
 fn init() -> (AppState, Task<AppMsg>) {
     debug!("initializing state");
     let state: AppState = AppState::Login(LoginState {
+        client: Client::new(),
         websocket: None,
         error: Option::None,
         ip_input_value: String::from("127.0.0.1:6767"),
         name_input_value: String::new(),
+        register_ip_input_value: String::from("127.0.0.1:6767"),
+        register_name_input_value: String::new(),
     });
     return (state, Task::none());
 }

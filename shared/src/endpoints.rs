@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::{marker::PhantomData, str::FromStr};
 
 use macros::params;
@@ -48,6 +49,16 @@ pub enum CrudMethod {
     Read,
     Update,
     Delete,
+}
+impl Display for CrudMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CrudMethod::Create => f.write_str("POST"),
+            CrudMethod::Read => f.write_str("GET"),
+            CrudMethod::Update => f.write_str("PUT"),
+            CrudMethod::Delete => f.write_str("DELETE"),
+        }
+    }
 }
 
 #[derive(Deserialize, Clone)]

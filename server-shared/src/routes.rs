@@ -2,11 +2,16 @@ use axum::Json;
 use axum::Router;
 use axum::extract::Path;
 use axum::extract::State;
+use axum::routing::MethodRouter;
+use axum::routing::delete;
 use axum::routing::get;
+use axum::routing::post;
+use axum::routing::put;
 use log::info;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
+use shared::endpoints::CrudMethod;
 use shared::endpoints::Endpoint;
 use shared::endpoints::Parameters;
 use shared::endpoints::Route;
@@ -47,19 +52,29 @@ impl RouteBuilder {
         Han: Fn(Context, Params, In) -> Fut + Clone + Send + Sync + 'static,
         Fut: Future<Output = Result<Out, String>> + Send + 'static,
     {
-        info!("registering request {}", Params::get_route_string());
+        info!("registering {} {}", End::METHOD, Params::get_route_string());
+
+        let handler = async move |State(state): State<Context>,
+                                  Path(path): Path<Params>,
+                                  Json(json): Json<In>|
+                    -> Result<Json<Out>, String> {
+            info!(
+                "recieved request at {} {}",
+                End::METHOD,
+                Params::get_route_string()
+            );
+            handler(state, path, json).await.map(|x| Json(x))
+        };
+        let method_function: MethodRouter<Context> = match End::METHOD {
+            CrudMethod::Create => post(handler),
+            CrudMethod::Read => get(handler),
+            CrudMethod::Update => put(handler),
+            CrudMethod::Delete => delete(handler),
+        };
+
         let x = self.router.route(
             &Params::get_route_string(),
-            get(
-                async move |State(state): State<Context>,
-                            Path(path): Path<Params>,
-                            Json(json): Json<In>|
-                            -> Result<Json<Out>, String> {
-                    info!("recieved request {}", Params::get_route_string());
-                    handler(state, path, json).await.map(|x| Json(x))
-                },
-            )
-            .with_state(self.context.clone()),
+            method_function.with_state(self.context.clone()),
         );
 
         RouteBuilder {
